@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -15,5 +16,8 @@ func boolParser(input string) (bool, string, bool) {
 }
 
 func main() {
+	fmt.Println(boolParser("trueafds"))
+	fmt.Println(boolParser("falseafds"))
+	fmt.Println(boolParser("faleafds"))
 
 }
