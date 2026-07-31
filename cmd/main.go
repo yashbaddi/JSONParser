@@ -9,9 +9,13 @@ import (
 	"unicode"
 )
 
+type JSONValue = any
+
+var numberRE = regexp.MustCompile(`^-?([1-9](\d)*|0)(\.(\d)+)?([eE][+-]?(\d)+)?`)
+
 func nullParser(input string) (any, string, bool) {
 	rest := input
-	if res := strings.HasPrefix(rest, "null"); res == true {
+	if res := strings.HasPrefix(rest, "null"); res {
 		return nil, rest[4:], true
 	}
 	return nil, input, false
@@ -19,10 +23,10 @@ func nullParser(input string) (any, string, bool) {
 
 func boolParser(input string) (bool, string, bool) {
 	rest := input
-	if res := strings.HasPrefix(rest, "true"); res == true {
+	if res := strings.HasPrefix(rest, "true"); res {
 		return true, rest[4:], true
 	}
-	if res := strings.HasPrefix(rest, "false"); res == true {
+	if res := strings.HasPrefix(rest, "false"); res {
 		return false, rest[5:], true
 	}
 	return false, input, false
@@ -30,9 +34,8 @@ func boolParser(input string) (bool, string, bool) {
 
 func numberParser(input string) (float64, string, bool) {
 	rest := input
-	re := regexp.MustCompile(`^-?([1-9](\d)*|0)(\.(\d)+)?([eE][+-]?(\d)+)?`)
 
-	match := re.FindString(rest)
+	match := numberRE.FindString(rest)
 	if match == "" {
 		return 0, input, false
 	}
@@ -54,7 +57,7 @@ func stringParser(input string) (string, string, bool) {
 	var builder strings.Builder
 	i := 1
 
-	for i > len(rest) && rest[i] != '"' {
+	for i < len(rest) && rest[i] != '"' {
 		if err := builder.WriteByte(rest[i]); err != nil {
 			return "", input, false
 		}
@@ -68,7 +71,7 @@ func stringParser(input string) (string, string, bool) {
 	return builder.String(), rest[i+1:], true
 }
 
-func objectParser(input string) (map[string]any, string, bool) {
+func objectParser(input string) (map[string]JSONValue, string, bool) {
 	rest := input
 
 	if !strings.HasPrefix(rest, "{") {
@@ -118,13 +121,11 @@ func spaceParser(input string) string {
 	return strings.TrimLeftFunc(input, unicode.IsSpace)
 }
 
-type JSONValue = any
-
 func valueParser(input string) (JSONValue, string, bool) {
 	rest := input
 	rest = spaceParser(rest)
 
-	if nil, rest, ok := nullParser(rest); ok {
+	if _, rest, ok := nullParser(rest); ok {
 		return nil, rest, true
 	}
 	if b, rest, ok := boolParser(rest); ok {
@@ -152,6 +153,6 @@ func main() {
 	a["asdsa"] = 0
 	v, _ := json.Marshal(a)
 	fmt.Println(string(v))
-	fmt.Println(objectParser(string(v)))
+	fmt.Println(objectParser("{\"key\":\"hey\nsad\"}"))
 
 }
