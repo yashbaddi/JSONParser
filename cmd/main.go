@@ -1,33 +1,38 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
-func nullParser(input string) (string, bool) {
-	if res := strings.HasPrefix(input, "null"); res == true {
-		return input[4:], true
+func nullParser(input string) (any, string, bool) {
+	rest := input
+	if res := strings.HasPrefix(rest, "null"); res == true {
+		return nil, rest[4:], true
 	}
-	return input, false
+	return nil, input, false
 }
 
 func boolParser(input string) (bool, string, bool) {
-	if res := strings.HasPrefix(input, "true"); res == true {
-		return true, input[4:], true
+	rest := input
+	if res := strings.HasPrefix(rest, "true"); res == true {
+		return true, rest[4:], true
 	}
-	if res := strings.HasPrefix(input, "false"); res == true {
-		return false, input[5:], true
+	if res := strings.HasPrefix(rest, "false"); res == true {
+		return false, rest[5:], true
 	}
 	return false, input, false
 }
 
 func numberParser(input string) (float64, string, bool) {
+	rest := input
 	re := regexp.MustCompile(`^-?([1-9](\d)*|0)(\.(\d)+)?([eE][+-]?(\d)+)?`)
 
-	match := re.FindString(input)
+	match := re.FindString(rest)
 	if match == "" {
 		return 0, input, false
 	}
@@ -36,37 +41,103 @@ func numberParser(input string) (float64, string, bool) {
 	if err != nil {
 		return 0, input, false
 	}
-	return num, input[len(match):], true
+	return num, rest[len(match):], true
 }
 
 func stringParser(input string) (string, string, bool) {
-	var builder strings.Builder
-	if input[0] == '"' {
-		i := 0
-		for input[i] != '"' {
-			if err := builder.WriteByte(input[i]); err != nil {
-				return "", input, false
-			}
-		}
-		return builder.String(), input[i:], true
+	rest := input
+
+	if len(rest) == 0 || rest[0] != '"' {
+		return "", input, false
 	}
-	return "", input, false
+
+	var builder strings.Builder
+	i := 1
+
+	for i > len(rest) && rest[i] != '"' {
+		if err := builder.WriteByte(rest[i]); err != nil {
+			return "", input, false
+		}
+		i++
+	}
+
+	if i == len(rest) {
+		return "", input, false
+	}
+
+	return builder.String(), rest[i+1:], true
 }
 
-func valueParser(input string) (any, string, bool) {
-	input = strings.TrimSpace(input)
+func objectParser(input string) (map[string]any, string, bool) {
+	rest := input
 
-	if rest, ok := nullParser(input); ok {
+	if !strings.HasPrefix(rest, "{") {
+		return nil, input, false
+
+	}
+
+	data := make(map[string]any)
+	rest = spaceParser(rest[1:])
+
+	for !strings.HasPrefix(rest, "}") {
+		rest = spaceParser(rest)
+
+		key, rest, ok := stringParser(rest)
+		if !ok {
+			return nil, input, false
+		}
+
+		rest = spaceParser(rest)
+
+		if !strings.HasPrefix(rest, ":") {
+			return nil, input, false
+		}
+
+		value, rest, ok := valueParser(rest[1:])
+		if !ok {
+			return nil, input, false
+		}
+		data[key] = value
+		rest = spaceParser(rest)
+
+		if strings.HasPrefix(rest, ",") {
+			rest = rest[1:]
+			continue
+		}
+
+		if strings.HasPrefix(rest, "}") {
+			return data, rest[1:], true
+		}
+
+		return nil, input, false
+	}
+	return data, rest[1:], true
+}
+
+func spaceParser(input string) string {
+	return strings.TrimLeftFunc(input, unicode.IsSpace)
+}
+
+type JSONValue = any
+
+func valueParser(input string) (JSONValue, string, bool) {
+	rest := input
+	rest = spaceParser(rest)
+
+	if nil, rest, ok := nullParser(rest); ok {
 		return nil, rest, true
 	}
-	if b, rest, ok := boolParser(input); ok {
+	if b, rest, ok := boolParser(rest); ok {
 		return b, rest, true
 	}
-	if n, rest, ok := numberParser(input); ok {
+	if n, rest, ok := numberParser(rest); ok {
 		return n, rest, true
 	}
-	if s, rest, ok := boolParser(input); ok {
+	if s, rest, ok := stringParser(rest); ok {
 		return s, rest, true
+	}
+	if o, rest, ok := objectParser(rest); ok {
+		return o, rest, true
 	}
 	return nil, input, false
 }
@@ -77,5 +148,10 @@ func main() {
 	// fmt.Println(boolParser("faleafds"))
 	fmt.Println(numberParser("24fdsaf"))
 	fmt.Println(stringParser("\""))
+	a := make(map[string]any)
+	a["asdsa"] = 0
+	v, _ := json.Marshal(a)
+	fmt.Println(string(v))
+	fmt.Println(objectParser(string(v)))
 
 }
