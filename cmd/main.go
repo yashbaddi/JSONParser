@@ -55,20 +55,19 @@ func stringParser(input string) (string, string, bool) {
 	}
 
 	var builder strings.Builder
-	i := 1
+	rest = rest[1:] // consume opening quote
 
-	for i < len(rest) {
+	for len(rest) > 0 {
+		switch rest[0] {
 
-		switch rest[i] {
 		case '"':
-			return builder.String(), rest[i+1:], true
+			return builder.String(), rest[1:], true
 
 		case '\\':
-			i++
-			if i >= len(rest) {
-				return "", input, false
-			}
-			r, ok := parseEscape(input, &i)
+			var r rune
+			var ok bool
+
+			r, rest, ok = parseEscape(rest[1:]) // consume '\' first
 			if !ok {
 				return "", input, false
 			}
@@ -76,52 +75,60 @@ func stringParser(input string) (string, string, bool) {
 			builder.WriteRune(r)
 
 		default:
-			builder.WriteByte(rest[i])
-
+			builder.WriteByte(rest[0])
+			rest = rest[1:]
 		}
-		i++
 	}
 
 	return "", input, false
-
 }
 
-func parseEscape(input string, i *int) (rune, bool) {
-	rest := input
-
-	switch rest[*i] {
-	case '"':
-		return '"', true
-	case '\\':
-		return '\\', true
-	case '/':
-		return '/', true
-	case 'b':
-		return '\b', true
-	case 'f':
-		return '\f', true
-	case 'n':
-		return '\n', true
-	case 'r':
-		return '\r', true
-	case 't':
-		return '\t', true
-	case 'u':
-		if *i+4 >= len(rest) {
-			return rune(0), false
-		}
-		hex := rest[*i+1 : *i+5]
-		value, err := strconv.ParseUint(hex, 16, 16)
-		if err != nil {
-			return rune(0), false
-		}
-		*i += 4
-
-		return rune(value), true
+func parseEscape(input string) (rune, string, bool) {
+	if len(input) == 0 {
+		return 0, input, false
 	}
 
-	return rune(0), false
+	switch input[0] {
+	case '"':
+		return '"', input[1:], true
 
+	case '\\':
+		return '\\', input[1:], true
+
+	case '/':
+		return '/', input[1:], true
+
+	case 'b':
+		return '\b', input[1:], true
+
+	case 'f':
+		return '\f', input[1:], true
+
+	case 'n':
+		return '\n', input[1:], true
+
+	case 'r':
+		return '\r', input[1:], true
+
+	case 't':
+		return '\t', input[1:], true
+
+	case 'u':
+		if len(input) < 5 {
+			return 0, input, false
+		}
+
+		hex := input[1:5]
+
+		value, err := strconv.ParseUint(hex, 16, 16)
+		if err != nil {
+			return 0, input, false
+		}
+
+		return rune(value), input[5:], true
+	}
+
+	return 0, input, false
 }
 
 func arrayParser(input string) ([]JSONValue, string, bool) {
