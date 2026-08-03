@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -71,6 +71,45 @@ func stringParser(input string) (string, string, bool) {
 	return builder.String(), rest[i+1:], true
 }
 
+func arrayParser(input string) ([]JSONValue, string, bool) {
+	rest := input
+
+	if !strings.HasPrefix(rest, "[") {
+		return nil, input, false
+
+	}
+
+	var data []JSONValue
+	rest = spaceParser(rest[1:])
+
+	for !strings.HasPrefix(rest, "]") {
+		rest = spaceParser(rest)
+		var ok bool
+		var value JSONValue
+		value, rest, ok = valueParser(rest)
+		if !ok {
+			return nil, input, false
+		}
+
+		data = append(data, value)
+
+		rest = spaceParser(rest)
+
+		if strings.HasPrefix(rest, ",") {
+			rest = rest[1:]
+			continue
+		}
+
+		if strings.HasPrefix(rest, "]") {
+			return data, rest[1:], true
+		}
+
+		return nil, input, false
+	}
+	return data, rest[1:], true
+
+}
+
 func objectParser(input string) (map[string]JSONValue, string, bool) {
 	rest := input
 
@@ -85,7 +124,9 @@ func objectParser(input string) (map[string]JSONValue, string, bool) {
 	for !strings.HasPrefix(rest, "}") {
 		rest = spaceParser(rest)
 
-		key, rest, ok := stringParser(rest)
+		var key string
+		var ok bool
+		key, rest, ok = stringParser(rest)
 		if !ok {
 			return nil, input, false
 		}
@@ -96,7 +137,8 @@ func objectParser(input string) (map[string]JSONValue, string, bool) {
 			return nil, input, false
 		}
 
-		value, rest, ok := valueParser(rest[1:])
+		var value JSONValue
+		value, rest, ok = valueParser(rest[1:])
 		if !ok {
 			return nil, input, false
 		}
@@ -140,19 +182,40 @@ func valueParser(input string) (JSONValue, string, bool) {
 	if o, rest, ok := objectParser(rest); ok {
 		return o, rest, true
 	}
+	if a, rest, ok := arrayParser(rest); ok {
+		return a, rest, true
+	}
 	return nil, input, false
 }
 
 func main() {
-	// fmt.Println(boolParser("trueafds"))
-	// fmt.Println(boolParser("falseafds"))
-	// fmt.Println(boolParser("faleafds"))
-	fmt.Println(numberParser("24fdsaf"))
-	fmt.Println(stringParser("\""))
-	a := make(map[string]any)
-	a["asdsa"] = 0
-	v, _ := json.Marshal(a)
-	fmt.Println(string(v))
-	fmt.Println(objectParser("{\"key\":\"hey\nsad\"}"))
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <filename>")
+		os.Exit(1)
+	}
+
+	filename := os.Args[1]
+
+	data, err := os.ReadFile(filename)
+
+	if err != nil {
+		println("Error Reading File", err)
+		os.Exit(1)
+	}
+	content := string(data)
+
+	a, rest, ok := arrayParser(content)
+	rest = spaceParser(rest)
+	if len(rest) == 0 && ok {
+		fmt.Println(a)
+		os.Exit(0)
+	}
+	o, rest, ok := objectParser(content)
+	rest = spaceParser(rest)
+	if len(rest) == 0 && ok {
+		fmt.Println(o)
+		os.Exit(0)
+	}
+	fmt.Println("Error processing the data")
 
 }
