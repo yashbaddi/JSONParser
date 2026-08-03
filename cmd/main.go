@@ -57,18 +57,71 @@ func stringParser(input string) (string, string, bool) {
 	var builder strings.Builder
 	i := 1
 
-	for i < len(rest) && rest[i] != '"' {
-		if err := builder.WriteByte(rest[i]); err != nil {
-			return "", input, false
+	for i < len(rest) {
+
+		switch rest[i] {
+		case '"':
+			return builder.String(), rest[i+1:], true
+
+		case '\\':
+			i++
+			if i >= len(rest) {
+				return "", input, false
+			}
+			r, ok := parseSplChars(input, &i)
+			if !ok {
+				return "", input, false
+			}
+
+			builder.WriteRune(r)
+
+		default:
+			builder.WriteByte(rest[i])
+
 		}
 		i++
 	}
 
-	if i == len(rest) {
-		return "", input, false
+	return "", input, false
+
+}
+
+func parseSplChars(input string, i *int) (rune, bool) {
+	rest := input
+
+	switch rest[*i] {
+	case '"':
+		return '"', true
+	case '\\':
+		return '\\', true
+	case '/':
+		return '/', true
+	case 'b':
+		return '\b', true
+	case 'f':
+		return '\f', true
+	case 'n':
+		return '\n', true
+	case 'r':
+		return '\r', true
+	case 't':
+		return '\t', true
+	case 'u':
+		if *i+4 >= len(rest) {
+			return rune(0), false
+		}
+		hex := rest[*i+1 : *i+5]
+		value, err := strconv.ParseUint(hex, 16, 16)
+		if err != nil {
+			return rune(0), false
+		}
+		*i += 4
+
+		return rune(value), true
 	}
 
-	return builder.String(), rest[i+1:], true
+	return rune(0), false
+
 }
 
 func arrayParser(input string) ([]JSONValue, string, bool) {
