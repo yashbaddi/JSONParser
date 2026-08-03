@@ -68,7 +68,7 @@ func stringParser(input string) (string, string, bool) {
 			if i >= len(rest) {
 				return "", input, false
 			}
-			r, ok := parseSplChars(input, &i)
+			r, ok := parseEscape(input, &i)
 			if !ok {
 				return "", input, false
 			}
@@ -86,7 +86,7 @@ func stringParser(input string) (string, string, bool) {
 
 }
 
-func parseSplChars(input string, i *int) (rune, bool) {
+func parseEscape(input string, i *int) (rune, bool) {
 	rest := input
 
 	switch rest[*i] {
