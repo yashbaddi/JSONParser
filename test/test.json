@@ -1,4 +1,9 @@
 {
-    "kind": "Lis\nting",
-    "link_flair_text": "OC Maymay \u2668 "
+  "name": "Mansi",
+  "laptop": "Dell",
+  "Phone": "iPhone",
+  "age": 26,
+  "isMale": false,
+  "isFemale": true,
+  "Skills": ["servNow", "js"]
 }
